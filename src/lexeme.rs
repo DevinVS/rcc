@@ -68,6 +68,8 @@ lazy_static! {
         m.insert("/=", Lexeme::DivAssign);
         m.insert("%", Lexeme::Mod);
         m.insert("%=", Lexeme::ModAssign);
+        m.insert("++", Lexeme::Increment);
+        m.insert("--", Lexeme::Decrement);
         m.insert("=", Lexeme::Assign);
         m.insert("==", Lexeme::Equal);
         m.insert("!", Lexeme::Not);
@@ -82,16 +84,16 @@ lazy_static! {
         m.insert(">>=", Lexeme::RightShiftAssign);
         m.insert(":", Lexeme::Colon);
         m.insert("?", Lexeme::Question);
-        m.insert("&", Lexeme::LogicalAndReference);
+        m.insert("&", Lexeme::BitwiseAndReference);
         m.insert("&&", Lexeme::And);
-        m.insert("&=", Lexeme::LogicalAndAssign);
-        m.insert("|", Lexeme::LogicalOr);
+        m.insert("&=", Lexeme::BitwiseAndAssign);
+        m.insert("|", Lexeme::BitwiseOr);
         m.insert("||", Lexeme::Or);
-        m.insert("|=", Lexeme::LogicalOrAssign);
-        m.insert("^", Lexeme::LogicalXor);
-        m.insert("^=", Lexeme::LogicalXorAssign);
-        m.insert("~", Lexeme::LogicalNot);
-        m.insert("~=", Lexeme::LogicalNotAssign);
+        m.insert("|=", Lexeme::BitwiseOrAssign);
+        m.insert("^", Lexeme::BitwiseXor);
+        m.insert("^=", Lexeme::BitwiseXorAssign);
+        m.insert("~", Lexeme::BitwiseNot);
+        m.insert("~=", Lexeme::BitwiseNotAssign);
         m.insert(".", Lexeme::Dot);
         m.insert("->", Lexeme::Arrow);
 
@@ -202,14 +204,14 @@ pub enum Lexeme {
     And,
     Or,
     Not,
-    LogicalAndReference,
-    LogicalAndAssign,
-    LogicalOr,
-    LogicalOrAssign,
-    LogicalXor,
-    LogicalXorAssign,
-    LogicalNot,
-    LogicalNotAssign,
+    BitwiseAndReference,
+    BitwiseAndAssign,
+    BitwiseOr,
+    BitwiseOrAssign,
+    BitwiseXor,
+    BitwiseXorAssign,
+    BitwiseNot,
+    BitwiseNotAssign,
     LeftShift,
     LeftShiftAssign,
     RightShift,

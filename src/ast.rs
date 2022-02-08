@@ -1,4 +1,4 @@
-pub type CProgram = Vec<ExternalDeclaration>;
+pub type CProgram = Vec<Box<ExternalDeclaration>>;
 
 #[derive(Debug)]
 pub struct Identifier(pub String);
@@ -10,32 +10,32 @@ pub struct CSVec<T> {
 
 #[derive(Debug)]
 pub enum ExternalDeclaration {
-    FunctionDefinition(FunctionDefinition),
-    Declaration(Declaration)
+    FunctionDefinition(Box<FunctionDefinition>),
+    Declaration(Box<Declaration>)
 }
 
 #[derive(Debug)]
 pub struct FunctionDefinition {
-    pub declaration_specifiers: Option<DeclarationSpecifiers>,
-    pub declarator: Declarator,
-    pub declaration_list: Option<DeclarationList>,
-    pub compound: CompoundStatement
+    pub declaration_specifiers: Option<Box<DeclarationSpecifiers>>,
+    pub declarator: Box<Declarator>,
+    pub declaration_list: Option<Box<DeclarationList>>,
+    pub compound: Box<CompoundStatement>
 }
 
 #[derive(Debug)]
 pub struct Declaration {
-    pub specs: DeclarationSpecifiers,
-    pub init_list: Option<InitDeclaratorList>
+    pub specs: Box<DeclarationSpecifiers>,
+    pub init_list: Option<Box<InitDeclaratorList>>
 }
 
-pub type DeclarationList = Vec<Declaration>;
-pub type DeclarationSpecifiers = Vec<DeclarationSpecifier>;
+pub type DeclarationList = Vec<Box<Declaration>>;
+pub type DeclarationSpecifiers = Vec<Box<DeclarationSpecifier>>;
 
 #[derive(Debug)]
 pub enum DeclarationSpecifier {
-    StorageClassSpecifier(StorageClassSpecifier),
-    TypeSpecifier(TypeSpecifier),
-    TypeQualifier(TypeQualifier)
+    StorageClassSpecifier(Box<StorageClassSpecifier>),
+    TypeSpecifier(Box<TypeSpecifier>),
+    TypeQualifier(Box<TypeQualifier>)
 }
 
 #[derive(Debug)]
@@ -58,9 +58,9 @@ pub enum TypeSpecifier {
     Double,
     Signed,
     Unsigned,
-    StructOrUnion(StructOrUnionSpecifier),
-    Enum(EnumSpecifier),
-    Typedef(TypedefName),
+    StructOrUnion(Box<StructOrUnionSpecifier>),
+    Enum(Box<EnumSpecifier>),
+    Typedef(Box<TypedefName>),
 }
 
 #[derive(Debug)]
@@ -71,8 +71,8 @@ pub enum TypeQualifier {
 
 #[derive(Debug)]
 pub enum StructOrUnionSpecifier {
-    Val(StructOrUnion, Identifier),
-    List(StructOrUnion, Option<Identifier>, StructDeclarationList)
+    Val(Box<StructOrUnion>, Box<Identifier>),
+    List(Box<StructOrUnion>, Option<Box<Identifier>>, Box<StructDeclarationList>)
 }
 
 #[derive(Debug)]
@@ -81,127 +81,127 @@ pub enum StructOrUnion {
     Union
 }
 
-pub type StructDeclarationList = Vec<StructDeclaration>;
+pub type StructDeclarationList = Vec<Box<StructDeclaration>>;
 
-pub type InitDeclaratorList = CSVec<InitDeclarator>;
+pub type InitDeclaratorList = CSVec<Box<InitDeclarator>>;
 
 #[derive(Debug)]
 pub enum InitDeclarator {
-    Declarator(Declarator),
-    Assign(Declarator, Initializer)
+    Declarator(Box<Declarator>),
+    Assign(Box<Declarator>, Box<Initializer>)
 }
 
 #[derive(Debug)]
 pub struct StructDeclaration {
-    pub spec_qualifier_list: SpecifierQualifierList,
-    pub decl_list: StructDeclarationList
+    pub spec_qualifier_list: Box<SpecifierQualifierList>,
+    pub decl_list: Box<StructDeclarationList>
 }
 
-pub type SpecifierQualifierList = Vec<SpecifierOrQualifier>;
+pub type SpecifierQualifierList = Vec<Box<SpecifierOrQualifier>>;
 
 #[derive(Debug)]
 pub enum SpecifierOrQualifier {
-    Specifier(TypeSpecifier),
-    Qualifier(TypeQualifier)
+    Specifier(Box<TypeSpecifier>),
+    Qualifier(Box<TypeQualifier>)
 }
 
-pub type StructDeclaratorList = CSVec<StructDeclarator>;
+pub type StructDeclaratorList = CSVec<Box<StructDeclarator>>;
 
 #[derive(Debug)]
 pub enum StructDeclarator {
-    Decl(Declarator),
-    Const(Option<Declarator>, ConstantExpression)
+    Decl(Box<Declarator>),
+    Const(Option<Box<Declarator>>, Box<ConstantExpression>)
 }
 
 #[derive(Debug)]
 pub enum EnumSpecifier {
-    List(Option<Identifier>, EnumeratorList),
-    Identifier(Identifier)
+    List(Option<Box<Identifier>>, Box<EnumeratorList>),
+    Identifier(Box<Identifier>)
 }
 
-pub type EnumeratorList = CSVec<Enumerator>;
+pub type EnumeratorList = CSVec<Box<Enumerator>>;
 
 #[derive(Debug)]
 pub enum Enumerator {
-    Identifier(Identifier),
-    ConstantExpression(Identifier, ConstantExpression)
+    Identifier(Box<Identifier>),
+    ConstantExpression(Box<Identifier>, Box<ConstantExpression>)
 }
 
 #[derive(Debug)]
 pub struct Declarator {
-    pub pointer: Option<Pointer>,
-    pub decl: DirectDeclarator
+    pub pointer: Option<Box<Pointer>>,
+    pub decl: Box<DirectDeclarator>
 }
 
 #[derive(Debug)]
 pub enum DirectDeclarator {
-    Identifier(Identifier, Option<DirectDeclaratorEnd>),
-    Declarator(Box<Declarator>, Option<DirectDeclaratorEnd>),
+    Identifier(Box<Identifier>, Option<Box<DirectDeclaratorEnd>>),
+    Declarator(Box<Declarator>, Option<Box<DirectDeclaratorEnd>>),
 }
 
 #[derive(Debug)]
 pub enum DirectDeclaratorEnd {
-    ConstantExpression(Option<ConstantExpression>, Option<Box<DirectDeclaratorEnd>>),
-    ParameterTypeList(ParameterTypeList, Option<Box<DirectDeclaratorEnd>>),
-    IdentifierList(Option<IdentifierList>, Option<Box<DirectDeclaratorEnd>>)
+    ConstantExpression(Option<Box<ConstantExpression>>, Option<Box<DirectDeclaratorEnd>>),
+    ParameterTypeList(Box<ParameterTypeList>, Option<Box<DirectDeclaratorEnd>>),
+    IdentifierList(Option<Box<IdentifierList>>, Option<Box<DirectDeclaratorEnd>>)
 }
 
 
 #[derive(Debug)]
 pub enum Pointer {
-    Pointer(Option<TypeQualifierList>),
-    List(Option<TypeQualifierList>, Box<Pointer>)
+    Pointer(Option<Box<TypeQualifierList>>),
+    List(Option<Box<TypeQualifierList>>, Box<Pointer>)
 }
 
-pub type TypeQualifierList = Vec<TypeQualifier>;
+pub type TypeQualifierList = Vec<Box<TypeQualifier>>;
 
 #[derive(Debug)]
 pub enum ParameterTypeList {
-    Regular(ParameterList),
-    VarArgs(ParameterList)
+    Regular(Box<ParameterList>),
+    VarArgs(Box<ParameterList>)
 }
 
-pub type ParameterList = CSVec<ParameterDeclaration>;
+pub type ParameterList = CSVec<Box<ParameterDeclaration>>;
 
 #[derive(Debug)]
 pub enum ParameterDeclaration {
-    Declaration(DeclarationSpecifiers, Declarator),
-    AbstractDeclarator(DeclarationSpecifiers, Option<AbstractDeclarator>)
+    Declaration(Box<DeclarationSpecifiers>, Box<Declarator>),
+    AbstractDeclarator(Box<DeclarationSpecifiers>, Option<Box<AbstractDeclarator>>)
 }
 
-pub type IdentifierList = CSVec<Identifier>;
+pub type IdentifierList = CSVec<Box<Identifier>>;
 
 #[derive(Debug)]
 pub enum Initializer {
-    Assign(AssignmentExpression),
-    List(InitializerList)
+    Assign(Box<AssignmentExpression>),
+    List(Box<InitializerList>)
 }
 
-pub type InitializerList = CSVec<Initializer>;
+pub type InitializerList = CSVec<Box<Initializer>>;
 
 #[derive(Debug)]
 pub struct TypeName {
-    pub list: SpecifierQualifierList,
+    pub list: Box<SpecifierQualifierList>,
     pub declarator: Option<Box<AbstractDeclarator>>
 }
 
 #[derive(Debug)]
 pub enum AbstractDeclarator {
-    Pointer(Pointer),
-    Declarator(Option<Pointer>, DirectAbstractDeclarator)
+    Pointer(Box<Pointer>),
+    Declarator(Option<Box<Pointer>>, Box<DirectAbstractDeclarator>)
 }
 
 #[derive(Debug)]
 pub enum DirectAbstractDeclarator {
-    Decl(Box<AbstractDeclarator>, Option<DirectAbstractDeclaratorEnd>),
-    Const(Option<ConstantExpression>, Option<DirectAbstractDeclaratorEnd>),
-    Param(Option<ParameterTypeList>, Option<DirectAbstractDeclaratorEnd>)
+    Decl(Box<AbstractDeclarator>, Option<Box<DirectAbstractDeclaratorEnd>>),
+    Const(Option<Box<ConstantExpression>>, Option<Box<DirectAbstractDeclaratorEnd>>),
+    Param(Option<Box<ParameterTypeList>>, Option<Box<DirectAbstractDeclaratorEnd>>)
 }
 
 #[derive(Debug)]
 pub enum DirectAbstractDeclaratorEnd {
-    Const(Option<ConstantExpression>, Option<Box<DirectAbstractDeclaratorEnd>>),
-    Param(Option<ParameterTypeList>, Option<Box<DirectAbstractDeclaratorEnd>>)
+    Const(Option<Box<ConstantExpression>>, Option<Box<DirectAbstractDeclaratorEnd>>),
+    Param(Option<Box<ParameterTypeList>>, Option<Box<DirectAbstractDeclaratorEnd>>)
 }
 
 
@@ -222,52 +222,52 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub enum LabeledStatement {
-    Map(Identifier, Statement),
-    Case(ConstantExpression, Statement),
-    Default(Statement)
+    Map(Box<Identifier>, Box<Statement>),
+    Case(Box<ConstantExpression>, Box<Statement>),
+    Default(Box<Statement>)
 }
 
 #[derive(Debug)]
 pub struct ExpressionStatement {
-    pub expression: Option<Expression>
+    pub expression: Option<Box<Expression>>
 }
 
 #[derive(Debug)]
 pub struct CompoundStatement {
-    pub declarations: Option<DeclarationList>,
-    pub statements: Option<StatementList>
+    pub declarations: Option<Box<DeclarationList>>,
+    pub statements: Option<Box<StatementList>>
 }
 
-pub type StatementList = Vec<Statement>;
+pub type StatementList = Vec<Box<Statement>>;
 
 #[derive(Debug)]
 pub enum SelectionStatement {
-    If(Expression, Statement),
-    IfElse(Expression, Statement, Statement),
-    Switch(Expression, Statement)
+    If(Box<Expression>, Box<Statement>),
+    IfElse(Box<Expression>, Box<Statement>, Box<Statement>),
+    Switch(Box<Expression>, Box<Statement>)
 }
 
 #[derive(Debug)]
 pub enum IterationStatement {
-    While(Expression, Statement),
-    DoWhile(Statement, Expression),
-    For(Option<Expression>, Option<Expression>, Option<Expression>, Statement)
+    While(Box<Expression>, Box<Statement>),
+    DoWhile(Box<Statement>, Box<Expression>),
+    For(Option<Box<Expression>>, Option<Box<Expression>>, Option<Box<Expression>>, Box<Statement>)
 }
 
 #[derive(Debug)]
 pub enum JumpStatement {
-    Goto(Identifier),
+    Goto(Box<Identifier>),
     Continue,
     Break,
-    Return(Option<Expression>)
+    Return(Option<Box<Expression>>)
 }
 
-pub type Expression = CSVec<AssignmentExpression>;
+pub type Expression = CSVec<Box<AssignmentExpression>>;
 
 #[derive(Debug)]
 pub enum AssignmentExpression {
-    Conditional(ConditionalExpression),
-    Assign(Box<UnaryExpression>, AssignmentOperator, Box<AssignmentExpression>)
+    Conditional(Box<ConditionalExpression>),
+    Assign(Box<UnaryExpression>, Box<AssignmentOperator>, Box<AssignmentExpression>)
 }
 
 #[derive(Debug)]
@@ -288,150 +288,150 @@ pub enum AssignmentOperator {
 
 #[derive(Debug)]
 pub enum ConditionalExpression {
-    Or(LogicalOrExpression),
-    Ternary(LogicalOrExpression, Expression, Box<ConditionalExpression>)
+    Or(Box<LogicalOrExpression>),
+    Ternary(Box<LogicalOrExpression>, Box<Expression>, Box<ConditionalExpression>)
 }
 
 #[derive(Debug)]
-pub struct ConstantExpression(pub ConditionalExpression);
+pub struct ConstantExpression(pub Box<ConditionalExpression>);
 
 #[derive(Debug)]
 pub struct LogicalOrExpression {
-    pub expr: LogicalAndExpression,
-    pub next: Option<LogicalOrExpressionEnd>
+    pub expr: Box<LogicalAndExpression>,
+    pub next: Option<Box<LogicalOrExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct LogicalOrExpressionEnd {
-    pub expr: LogicalAndExpression,
+    pub expr: Box<LogicalAndExpression>,
     pub next: Option<Box<LogicalOrExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct LogicalAndExpression {
-    pub expr: InclusiveOrExpression,
-    pub next: Option<LogicalAndExpressionEnd>
+    pub expr: Box<InclusiveOrExpression>,
+    pub next: Option<Box<LogicalAndExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct LogicalAndExpressionEnd {
-    pub expr: InclusiveOrExpression,
+    pub expr: Box<InclusiveOrExpression>,
     pub next: Option<Box<LogicalAndExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct InclusiveOrExpression {
-    pub expr: ExclusiveOrExpression,
-    pub next: Option<InclusiveOrExpressionEnd>
+    pub expr: Box<ExclusiveOrExpression>,
+    pub next: Option<Box<InclusiveOrExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct InclusiveOrExpressionEnd {
-    pub expr: ExclusiveOrExpression,
+    pub expr: Box<ExclusiveOrExpression>,
     pub next: Option<Box<InclusiveOrExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct ExclusiveOrExpression {
-    pub expr: AndExpression,
-    pub next: Option<ExclusiveOrExpressionEnd>
+    pub expr: Box<AndExpression>,
+    pub next: Option<Box<ExclusiveOrExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct ExclusiveOrExpressionEnd {
-    pub expr: AndExpression,
+    pub expr: Box<AndExpression>,
     pub next: Option<Box<ExclusiveOrExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct AndExpression {
-    pub expr: EqualityExpression,
-    pub next: Option<AndExpressionEnd>
+    pub expr: Box<EqualityExpression>,
+    pub next: Option<Box<AndExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct AndExpressionEnd {
-    pub expr: EqualityExpression,
+    pub expr: Box<EqualityExpression>,
     pub next: Option<Box<AndExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub struct EqualityExpression {
-    pub expr: RelationalExpression,
-    pub next: Option<EqualityExpressionEnd>
+    pub expr: Box<RelationalExpression>,
+    pub next: Option<Box<EqualityExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub enum EqualityExpressionEnd {
-    Equal(RelationalExpression, Option<Box<EqualityExpressionEnd>>),
-    NotEqual(RelationalExpression, Option<Box<EqualityExpressionEnd>>)
+    Equal(Box<RelationalExpression>, Option<Box<EqualityExpressionEnd>>),
+    NotEqual(Box<RelationalExpression>, Option<Box<EqualityExpressionEnd>>)
 }
 
 #[derive(Debug)]
 pub struct RelationalExpression {
-    pub expr: ShiftExpression,
-    pub next: Option<RelationalExpressionEnd>
+    pub expr: Box<ShiftExpression>,
+    pub next: Option<Box<RelationalExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub enum RelationalExpressionEnd {
-    LT(ShiftExpression, Option<Box<RelationalExpressionEnd>>),
-    GT(ShiftExpression, Option<Box<RelationalExpressionEnd>>),
-    LTE(ShiftExpression, Option<Box<RelationalExpressionEnd>>),
-    GTE(ShiftExpression, Option<Box<RelationalExpressionEnd>>)
+    LT(Box<ShiftExpression>, Option<Box<RelationalExpressionEnd>>),
+    GT(Box<ShiftExpression>, Option<Box<RelationalExpressionEnd>>),
+    LTE(Box<ShiftExpression>, Option<Box<RelationalExpressionEnd>>),
+    GTE(Box<ShiftExpression>, Option<Box<RelationalExpressionEnd>>)
 }
 
 #[derive(Debug)]
 pub struct ShiftExpression {
-    pub expr: AdditiveExpression,
-    pub next: Option<ShiftExpressionEnd>
+    pub expr: Box<AdditiveExpression>,
+    pub next: Option<Box<ShiftExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub enum ShiftExpressionEnd {
-    LS(AdditiveExpression, Option<Box<ShiftExpressionEnd>>),
-    RS(AdditiveExpression, Option<Box<ShiftExpressionEnd>>)
+    LS(Box<AdditiveExpression>, Option<Box<ShiftExpressionEnd>>),
+    RS(Box<AdditiveExpression>, Option<Box<ShiftExpressionEnd>>)
 }
 
 #[derive(Debug)]
 pub struct AdditiveExpression {
-    pub expr: MultiplicativeExpression,
-    pub next: Option<AdditiveExpressionEnd>
+    pub expr: Box<MultiplicativeExpression>,
+    pub next: Option<Box<AdditiveExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub enum AdditiveExpressionEnd {
-    Add(MultiplicativeExpression, Option<Box<AdditiveExpressionEnd>>),
-    Sub(MultiplicativeExpression, Option<Box<AdditiveExpressionEnd>>)
+    Add(Box<MultiplicativeExpression>, Option<Box<AdditiveExpressionEnd>>),
+    Sub(Box<MultiplicativeExpression>, Option<Box<AdditiveExpressionEnd>>)
 }
 
 #[derive(Debug)]
 pub struct MultiplicativeExpression {
-    pub expr: CastExpression,
-    pub next: Option<MultiplicativeExpressionEnd>,
+    pub expr: Box<CastExpression>,
+    pub next: Option<Box<MultiplicativeExpressionEnd>>
 }
 
 #[derive(Debug)]
 pub enum MultiplicativeExpressionEnd {
-    Mul(CastExpression, Option<Box<MultiplicativeExpressionEnd>>),
-    Div(CastExpression, Option<Box<MultiplicativeExpressionEnd>>),
-    Mod(CastExpression, Option<Box<MultiplicativeExpressionEnd>>),
+    Mul(Box<CastExpression>, Option<Box<MultiplicativeExpressionEnd>>),
+    Div(Box<CastExpression>, Option<Box<MultiplicativeExpressionEnd>>),
+    Mod(Box<CastExpression>, Option<Box<MultiplicativeExpressionEnd>>),
 }
 
 #[derive(Debug)]
 pub enum CastExpression {
     Unary(Box<UnaryExpression>),
-    Cast(TypeName, Box<CastExpression>)
+    Cast(Box<TypeName>, Box<CastExpression>)
 }
 
 #[derive(Debug)]
 pub enum UnaryExpression {
-    Postfix(PostfixExpression),
+    Postfix(Box<PostfixExpression>),
     Increment(Box<UnaryExpression>),
     Decrement(Box<UnaryExpression>),
-    Cast(UnaryOperator, CastExpression),
+    Cast(Box<UnaryOperator>, Box<CastExpression>),
     Sizeof(Box<UnaryExpression>),
-    SizeofType(TypeName)
+    SizeofType(Box<TypeName>)
 }
 
 #[derive(Debug)]
@@ -445,30 +445,30 @@ pub enum UnaryOperator {
 }
 
 #[derive(Debug)]
-pub enum PostfixExpression {
-    Primary(PrimaryExpression, Option<PostfixExpressionEnd>),
+pub struct PostfixExpression {
+    pub primary: Box<PrimaryExpression>,
+    pub suffixes: Box<Vec<Box<PostfixExpressionEnd>>>
 }
 
 #[derive(Debug)]
 pub enum PostfixExpressionEnd {
-    Index(Expression, Option<Box<PostfixExpressionEnd>>),
-    Call(Option<ArgumentExpressionList>, Option<Box<PostfixExpressionEnd>>),
-    Dot(Identifier, Option<Box<PostfixExpressionEnd>>),
-    Deref(Identifier, Option<Box<PostfixExpressionEnd>>),
-    Increment(Option<Box<PostfixExpressionEnd>>),
-    Decrement(Option<Box<PostfixExpressionEnd>>)
+    Index(Box<Expression>),
+    Call(Option<Box<ArgumentExpressionList>>),
+    Dot(Box<Identifier>),
+    Deref(Box<Identifier>),
+    Increment,
+    Decrement
 }
 
 #[derive(Debug)]
 pub enum PrimaryExpression {
-    Identifier(Identifier),
-    Constant(Constant),
+    Identifier(Box<Identifier>),
+    Constant(Box<Constant>),
     String(String),
-    Expression(Expression)
+    Expression(Box<Expression>)
 }
 
-
-pub type ArgumentExpressionList = CSVec<AssignmentExpression>;
+pub type ArgumentExpressionList = CSVec<Box<AssignmentExpression>>;
 
 #[derive(Debug)]
 pub enum Constant {

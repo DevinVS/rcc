@@ -5,6 +5,8 @@ use crate::lexeme::{
     SEPARATORS
 };
 
+use std::iter::Peekable;
+
 use std::collections::HashSet;
 
 pub struct Lexer {
@@ -39,7 +41,6 @@ impl Lexer {
             // characters until we reach a newline
             if self.single_line_comment {
                 if c=='\n' {
-                    chars.next();
                     self.single_line_comment = false;
                 }
                 continue;
@@ -121,10 +122,6 @@ impl Lexer {
                     chars.next();
 
                     let end = chars.next();
-
-                    if end.is_none() || end.unwrap()!='\'' {
-                        panic!("Invalid char literal");
-                    }
 
                     lexemes.push(Lexeme::CharLiteral(val));
                 }
@@ -215,6 +212,10 @@ impl Lexer {
                 }
                 lexemes.push(keyword.clone());
 
+            } else if let Ok(i) = str::parse::<u32>(&stack) {
+                lexemes.push(Lexeme::IntLiteral(i))
+            } else if let Ok(f) = str::parse::<f32>(&stack) {
+                lexemes.push(Lexeme::FloatLiteral(f));
             } else if self.type_names.contains(stack) {
                 lexemes.push(Lexeme::TypeName(stack.clone()));
             } else {
@@ -225,3 +226,41 @@ impl Lexer {
         *stack = String::new();
     }
 }
+
+pub struct LexemeFeed {
+    inner: Peekable<Box<dyn Iterator<Item=Lexeme>>>
+}
+
+impl LexemeFeed {
+    pub fn from_iter(i: Box<dyn Iterator<Item=Lexeme>>) -> LexemeFeed {
+        LexemeFeed {
+            inner: i.peekable()
+        }
+    }
+
+    pub fn next(&mut self) -> Option<Lexeme> {
+        self.inner.next()
+    }
+
+    pub fn peek(&mut self) -> Option<&Lexeme> {
+        self.inner.peek()
+    }
+
+    pub fn test(&mut self, l: Lexeme) -> bool {
+        if Some(&l) == self.peek() {
+            self.next();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn consume(&mut self, l: Lexeme) -> Result<(), String> {
+        if Some(l.clone()) == self.next() {
+            Ok(())
+        } else {
+            Err(format!("Expected: {:?}", l))
+        }
+    }
+}
+

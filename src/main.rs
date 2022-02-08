@@ -1,14 +1,20 @@
 use rcc::lexer::Lexer;
 use rcc::ast::CProgram;
 use rcc::parser::Parse;
+use rcc::lexer::LexemeFeed;
 
 fn main() {
-    let input = r#"int main(int argc, char ** argv) {}"#;
-
+    let input = r#"
+int main() {
+    sqrt();
+    func(a, b, c, &a);
+}
+"#;
     let mut lexer = Lexer::new();
 
     let lexemes = lexer.lex(input);
-    println!("Lexemes:\n{lexemes:#?}");
-    let prog = CProgram::parse(&mut lexemes.into_iter().peekable());
-    println!("Parse Tree:\n{prog:#?}");
+    println!("{:?}", lexemes);
+    let mut feed = LexemeFeed::from_iter(Box::new(lexemes.into_iter()));
+    let prog = CProgram::parse(&mut feed);
 }
+
