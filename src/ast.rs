@@ -94,7 +94,7 @@ pub enum InitDeclarator {
 #[derive(Debug)]
 pub struct StructDeclaration {
     pub spec_qualifier_list: Box<SpecifierQualifierList>,
-    pub decl_list: Box<StructDeclarationList>
+    pub decl_list: Box<StructDeclaratorList>
 }
 
 pub type SpecifierQualifierList = Vec<Box<SpecifierOrQualifier>>;
@@ -136,6 +136,7 @@ pub struct Declarator {
 #[derive(Debug)]
 pub enum DirectDeclarator {
     Identifier(Box<Identifier>, Option<Box<DirectDeclaratorEnd>>),
+    TypedefName(Box<TypedefName>, Option<Box<DirectDeclaratorEnd>>),
     Declarator(Box<Declarator>, Option<Box<DirectDeclaratorEnd>>),
 }
 

@@ -9,97 +9,120 @@ pub trait Parse {
     /// Parse a given expression. The result indicates whether the expression
     /// parsed correctly, whereas the option indicates whether the expression
     /// matched its pattern
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> where Self: Sized;
-    fn log(l: &mut LexemeFeed) {
-        println!("{}: {:?}", type_name::<Self>(), l.peek());
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>where Self: Sized;
+    fn log(l: &[Lexeme]) {
+        println!("{}: {:?}", type_name::<Self>(), &l[0]);
     }
 }
 
 // Parse lists of objects
 impl<T: Debug + Parse> Parse for Vec<Box<T>> {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        let mut items = vec![];
 
-        while let Some(i) = T::parse(l)? {
+        let mut items = vec![];
+        let mut tokens = 0;
+
+        while let Some((i, t)) = T::parse(&l[tokens..]) {
+            tokens += t;
             items.push(i);
         }
 
         if items.len() == 0 {
-            Ok(None)
+            None
         } else {
-            Ok(Some(Box::new(items)))
+            Some((Box::new(items), tokens))
         }
     }
 }
 
 // Parse comma separated lists of objects
 impl<T: Debug + Parse> Parse for CSVec<Box<T>> {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let mut items = vec![];
+        let mut tokens = 0;
 
-        let first = T::parse(l)?;
-        if first.is_none() {
-            return Ok(None);
-        }
-
-        items.push(first.unwrap());
+        let (first, t) = T::parse(l)?;
+        tokens += t;
+        items.push(first);
 
         while l.test(Lexeme::Comma) {
-            items.push(T::parse(l)?.expect("Expected another item in list"));
+            let (i, t) = T::parse(&l[tokens..]).unwrap();
+            tokens += t;
+            items.push(i);
         }
 
-        Ok(Some(Box::new(CSVec{ items })))
+        Some((Box::new(CSVec{ items }), tokens))
     }
 }
 
 impl Parse for Identifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        if let Some(Lexeme::Identifier(val)) = l.peek() {
+        if let Some(Lexeme::Identifier(val)) = l.get(0) {
             let val = val.clone();
-            l.next().unwrap();
-            Ok(Some(Box::new(Identifier(val))))
+            Some((Box::new(Identifier(val)), 1))
         } else {
-            Ok(None)
+            None
         }
     }
 }
 
 impl Parse for ExternalDeclaration {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        let decl_specs = DeclarationSpecifiers::parse(l)?;
+        let mut tokens = 0;
 
-        if let Some(declarator) = Declarator::parse(l)? {
-            // FunctionDefinition
-            let decl_list = DeclarationList::parse(l)?;
-            let compound  = CompoundStatement::parse(l)?.unwrap();
-            Ok(Some(Box::new(ExternalDeclaration::FunctionDefinition(
+        if let Some((decl_specs, t)) = DeclarationSpecifiers::parse(&l[tokens..]) {
+            tokens += t;
+
+            let init_list = InitDeclaratorList::parse(l)?;
+
+            if l.test(Lexeme::Semicolon) {
+                // Declaration
+                println!("Its a declaration");
+                Ok(Some(Box::new(ExternalDeclaration::Declaration(
+                    Box::new(Declaration {specs: decl_specs.unwrap(), init_list})
+                ))))
+            } else {
+                println!("Its a function");
+                if init_list.is_none() {
+                    return Err("".into());
+                }
+
+                let declarator = Declarator::parse(l)?.unwrap();
+                let decl_list = DeclarationList::parse(l)?;
+                let compound = CompoundStatement::parse(l)?.unwrap();
+
+                Ok(Some(Box::new(ExternalDeclaration::FunctionDefinition(
                     Box::new(FunctionDefinition {
                         declaration_specifiers: decl_specs,
                         declarator,
                         compound,
                         declaration_list: decl_list
-                    }
-            )))))
-        } else if decl_specs.is_some() {
-            // Declaration
-            let init_list = InitDeclaratorList::parse(l)?;
-            l.consume(Lexeme::Semicolon)?;
-            Ok(Some(Box::new(Self::Declaration(Box::new(Declaration {
-                specs: decl_specs.unwrap(),
-                init_list
-            })))))
+                    })
+                ))))
+            }
         } else {
-            Ok(None)
+            let declarator = Declarator::parse(l)?.unwrap();
+            let decl_list = DeclarationList::parse(l)?;
+            let compound = CompoundStatement::parse(l)?.unwrap();
+
+            Ok(Some(Box::new(ExternalDeclaration::FunctionDefinition(
+                Box::new(FunctionDefinition {
+                    declaration_specifiers: decl_specs,
+                    declarator,
+                    compound,
+                    declaration_list: decl_list
+                })
+            ))))
         }
     }
 }
 
 impl Parse for Declaration {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>>
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>
     where Self: Sized {
         if let Some(decl_specs) = DeclarationSpecifiers::parse(l)? {
             let init_list = InitDeclaratorList::parse(l)?;
@@ -112,7 +135,7 @@ impl Parse for Declaration {
 }
 
 impl Parse for DeclarationSpecifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let val = if let Some(scs) = StorageClassSpecifier::parse(l)? {
             Some(Self::StorageClassSpecifier(scs))
@@ -129,7 +152,7 @@ impl Parse for DeclarationSpecifier {
 }
 
 impl Parse for StorageClassSpecifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::Auto) => Ok(Some(Self::Auto)),
@@ -146,7 +169,7 @@ impl Parse for StorageClassSpecifier {
 }
 
 impl Parse for TypeSpecifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::Void) => Some(Self::Void),
@@ -181,7 +204,7 @@ impl Parse for TypeSpecifier {
 }
 
 impl Parse for TypeQualifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::Const) => Ok(Some(Self::Const)),
@@ -195,21 +218,20 @@ impl Parse for TypeQualifier {
 }
 
 impl Parse for StructOrUnionSpecifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        let sou = StructOrUnion::parse(l)?;
 
-        if sou.is_none() {
-            return Ok(None);
-        }
+        if let Some(sou) = StructOrUnion::parse(l)? {
+            let identifier = Identifier::parse(l)?;
 
-        let identifier = Identifier::parse(l)?;
-        let sdl = StructDeclarationList::parse(l)?;
+            if l.test(Lexeme::LeftBrace) {
+                let sdl = StructDeclarationList::parse(l)?.unwrap();
+                l.consume(Lexeme::RightBrace)?;
+                Ok(Some(Box::new(Self::List(sou, identifier, sdl))))
+            } else {
+                Ok(Some(Box::new(Self::Val(sou, identifier.unwrap()))))
+            }
 
-        if sdl.is_some() {
-            Ok(Some(Box::new(Self::List(sou.unwrap(), identifier, sdl.unwrap()))))
-        } else if identifier.is_some() {
-            Ok(Some(Box::new(Self::Val(sou.unwrap(), identifier.unwrap()))))
         } else {
             Ok(None)
         }
@@ -217,7 +239,7 @@ impl Parse for StructOrUnionSpecifier {
 }
 
 impl Parse for StructOrUnion {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::Struct) => Ok(Some(Self::Struct)),
@@ -231,7 +253,7 @@ impl Parse for StructOrUnion {
 }
 
 impl Parse for InitDeclarator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let decl = Declarator::parse(l)?;
 
@@ -249,26 +271,25 @@ impl Parse for InitDeclarator {
 }
 
 impl Parse for StructDeclaration {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        let qual = SpecifierQualifierList::parse(l)?;
 
-        if qual.is_none() {
-            return Ok(None);
-        }
+        if let Some(qual) = SpecifierQualifierList::parse(l)? {
+            let sdl = StructDeclaratorList::parse(l)?.unwrap();
+            l.consume(Lexeme::Semicolon)?;
 
-        let sdl = StructDeclarationList::parse(l)?.unwrap();
-        l.consume(Lexeme::Semicolon)?;
-
-        Ok(Some(Box::new(Self{
-            spec_qualifier_list: qual.unwrap(),
-            decl_list: sdl
+            Ok(Some(Box::new(Self{
+                spec_qualifier_list: qual,
+                decl_list: sdl
         })))
+        } else {
+            Ok(None)
+        }
     }
 }
 
 impl Parse for SpecifierOrQualifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(ts) = TypeSpecifier::parse(l)? {
             Ok(Some(Box::new(Self::Specifier(ts))))
@@ -281,7 +302,7 @@ impl Parse for SpecifierOrQualifier {
 }
 
 impl Parse for StructDeclarator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let declarator = Declarator::parse(l)?;
 
@@ -295,7 +316,7 @@ impl Parse for StructDeclarator {
 }
 
 impl Parse for EnumSpecifier {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::Enum) {
             let identifier = Identifier::parse(l)?;
@@ -315,7 +336,7 @@ impl Parse for EnumSpecifier {
 
 
 impl Parse for Enumerator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(identifier) = Identifier::parse(l)? {
             if l.test(Lexeme::Assign) {
@@ -332,25 +353,31 @@ impl Parse for Enumerator {
 
 
 impl Parse for Declarator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        let pointer = Pointer::parse(l)?;
-        let decl = DirectDeclarator::parse(l)?;
 
-        if pointer.is_none() && decl.is_none() {
-            return Ok(None);
+        if let Some(pointer) = Pointer::parse(l)? {
+            let decl = DirectDeclarator::parse(l)?.unwrap();
+            Ok(Some(Box::new(Self { pointer: Some(pointer), decl })))
+        } else {
+            if let Some(decl) = DirectDeclarator::parse(l)? {
+                Ok(Some(Box::new(Self { pointer: None, decl })))
+            } else {
+                Ok(None)
+            }
         }
-
-        Ok(Some(Box::new(Self { pointer, decl: decl.unwrap()})))
     }
 }
 
 impl Parse for DirectDeclarator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
-        if let Some(ident) = Identifier::parse(l)? {
+        let res = if let Some(ident) = Identifier::parse(l)? {
             let dd = DirectDeclaratorEnd::parse(l)?;
             Ok(Some(Box::new(DirectDeclarator::Identifier(ident, dd))))
+        } else if let Some(type_name) = TypedefName::parse(l)? {
+            let dd = DirectDeclaratorEnd::parse(l)?;
+            Ok(Some(Box::new(DirectDeclarator::TypedefName(type_name, dd))))
         } else if l.test(Lexeme::LeftParen) {
             let decl = Declarator::parse(l)?.unwrap();
             l.consume(Lexeme::RightParen)?;
@@ -359,12 +386,14 @@ impl Parse for DirectDeclarator {
             Ok(Some(Box::new(DirectDeclarator::Declarator(decl, dd))))
         } else {
             Ok(None)
-        }
+        };
+
+        res
     }
 }
 
 impl Parse for DirectDeclaratorEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::LeftBracket) {
             let const_expr = ConstantExpression::parse(l)?;
@@ -389,7 +418,7 @@ impl Parse for DirectDeclaratorEnd {
 }
 
 impl Parse for Pointer {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::MulOrPointer) {
             let tql = TypeQualifierList::parse(l)?;
@@ -406,7 +435,7 @@ impl Parse for Pointer {
 }
 
 impl Parse for ParameterTypeList {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(param_list) = ParameterList::parse(l)? {
             if l.test(Lexeme::Comma) {
@@ -427,7 +456,7 @@ impl Parse for ParameterTypeList {
 
 
 impl Parse for ParameterDeclaration {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(decl_specs) = DeclarationSpecifiers::parse(l)? {
             if let Some(decl) = Declarator::parse(l)? {
@@ -443,7 +472,7 @@ impl Parse for ParameterDeclaration {
 }
 
 impl Parse for Initializer {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = AssignmentExpression::parse(l)? {
             Ok(Some(Box::new(Self::Assign(expr))))
@@ -460,7 +489,7 @@ impl Parse for Initializer {
 }
 
 impl Parse for TypeName {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(sql) = SpecifierQualifierList::parse(l)? {
             let decl = AbstractDeclarator::parse(l)?;
@@ -472,7 +501,7 @@ impl Parse for TypeName {
 }
 
 impl Parse for AbstractDeclarator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let pointer = Pointer::parse(l)?;
         let dad = DirectAbstractDeclarator::parse(l)?;
@@ -488,7 +517,7 @@ impl Parse for AbstractDeclarator {
 }
 
 impl Parse for DirectAbstractDeclarator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
 
         if l.test(Lexeme::LeftParen) {
@@ -514,7 +543,7 @@ impl Parse for DirectAbstractDeclarator {
 }
 
 impl Parse for DirectAbstractDeclaratorEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::LeftParen) {
             let params = ParameterTypeList::parse(l)?;
@@ -533,7 +562,7 @@ impl Parse for DirectAbstractDeclaratorEnd {
 }
 
 impl Parse for TypedefName {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(Lexeme::TypeName(n)) = l.peek() {
             let n = n.clone();
@@ -546,7 +575,7 @@ impl Parse for TypedefName {
 }
 
 impl Parse for Statement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
 
         if let Some(es) = ExpressionStatement::parse(l)? {
@@ -568,7 +597,7 @@ impl Parse for Statement {
 }
 
 impl Parse for LabeledStatement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(ident) = Identifier::parse(l)? {
             l.consume(Lexeme::Colon)?;
@@ -593,7 +622,7 @@ impl Parse for LabeledStatement {
 }
 
 impl Parse for ExpressionStatement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let expr = Expression::parse(l)?;
 
@@ -608,7 +637,7 @@ impl Parse for ExpressionStatement {
 }
 
 impl Parse for CompoundStatement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::LeftBrace) {
             let decl_list = DeclarationList::parse(l)?;
@@ -624,7 +653,7 @@ impl Parse for CompoundStatement {
 }
 
 impl Parse for SelectionStatement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::If) {
             l.consume(Lexeme::LeftParen)?;
@@ -657,7 +686,7 @@ impl Parse for SelectionStatement {
 
 
 impl Parse for IterationStatement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::While) {
             l.consume(Lexeme::LeftParen)?;
@@ -695,7 +724,7 @@ impl Parse for IterationStatement {
 }
 
 impl Parse for JumpStatement {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::Goto) {
             let ident = Identifier::parse(l)?.unwrap();
@@ -718,7 +747,7 @@ impl Parse for JumpStatement {
 }
 
 impl Parse for AssignmentExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(ce) = ConditionalExpression::parse(l)? {
             Ok(Some(Box::new(Self::Conditional(ce))))
@@ -734,7 +763,7 @@ impl Parse for AssignmentExpression {
 }
 
 impl Parse for AssignmentOperator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::Assign) => Ok(Some(Self::Assign)),
@@ -758,7 +787,7 @@ impl Parse for AssignmentOperator {
 }
 
 impl Parse for ConditionalExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
 
         if let Some(loe) = LogicalOrExpression::parse(l)? {
@@ -778,7 +807,7 @@ impl Parse for ConditionalExpression {
 }
 
 impl Parse for ConstantExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let expr = ConditionalExpression::parse(l)?;
 
@@ -787,7 +816,7 @@ impl Parse for ConstantExpression {
 }
 
 impl Parse for LogicalOrExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = LogicalAndExpression::parse(l)? {
             let next = LogicalOrExpressionEnd::parse(l)?;
@@ -799,7 +828,7 @@ impl Parse for LogicalOrExpression {
 }
 
 impl Parse for LogicalOrExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::Or) {
             let expr = LogicalAndExpression::parse(l)?.unwrap();
@@ -812,7 +841,7 @@ impl Parse for LogicalOrExpressionEnd {
 }
 
 impl Parse for LogicalAndExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = InclusiveOrExpression::parse(l)? {
             let next = LogicalAndExpressionEnd::parse(l)?;
@@ -824,7 +853,7 @@ impl Parse for LogicalAndExpression {
 }
 
 impl Parse for LogicalAndExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::And) {
             let expr = InclusiveOrExpression::parse(l)?.unwrap();
@@ -837,7 +866,7 @@ impl Parse for LogicalAndExpressionEnd {
 }
 
 impl Parse for InclusiveOrExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = ExclusiveOrExpression::parse(l)? {
             let next = InclusiveOrExpressionEnd::parse(l)?;
@@ -849,7 +878,7 @@ impl Parse for InclusiveOrExpression {
 }
 
 impl Parse for InclusiveOrExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::BitwiseOr) {
             let expr = ExclusiveOrExpression::parse(l)?.unwrap();
@@ -862,7 +891,7 @@ impl Parse for InclusiveOrExpressionEnd {
 }
 
 impl Parse for ExclusiveOrExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = AndExpression::parse(l)? {
             let next = ExclusiveOrExpressionEnd::parse(l)?;
@@ -874,7 +903,7 @@ impl Parse for ExclusiveOrExpression {
 }
 
 impl Parse for ExclusiveOrExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::BitwiseXor) {
             let expr = AndExpression::parse(l)?.unwrap();
@@ -887,7 +916,7 @@ impl Parse for ExclusiveOrExpressionEnd {
 }
 
 impl Parse for AndExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = EqualityExpression::parse(l)? {
             let next = AndExpressionEnd::parse(l)?;
@@ -899,7 +928,7 @@ impl Parse for AndExpression {
 }
 
 impl Parse for AndExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::BitwiseAndReference) {
             let expr = EqualityExpression::parse(l)?.unwrap();
@@ -912,7 +941,7 @@ impl Parse for AndExpressionEnd {
 }
 
 impl Parse for EqualityExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = RelationalExpression::parse(l)? {
             let next = EqualityExpressionEnd::parse(l)?;
@@ -924,7 +953,7 @@ impl Parse for EqualityExpression {
 }
 
 impl Parse for EqualityExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::Equal) {
             let expr = RelationalExpression::parse(l)?.unwrap();
@@ -941,7 +970,7 @@ impl Parse for EqualityExpressionEnd {
 }
 
 impl Parse for RelationalExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = ShiftExpression::parse(l)? {
             let next = RelationalExpressionEnd::parse(l)?;
@@ -953,7 +982,7 @@ impl Parse for RelationalExpression {
 }
 
 impl Parse for RelationalExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::LessThan) {
             let expr = ShiftExpression::parse(l)?.unwrap();
@@ -978,7 +1007,7 @@ impl Parse for RelationalExpressionEnd {
 }
 
 impl Parse for ShiftExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = AdditiveExpression::parse(l)? {
             let next = ShiftExpressionEnd::parse(l)?;
@@ -990,7 +1019,7 @@ impl Parse for ShiftExpression {
 }
 
 impl Parse for ShiftExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::LeftShift) {
             let expr = AdditiveExpression::parse(l)?.unwrap();
@@ -1007,7 +1036,7 @@ impl Parse for ShiftExpressionEnd {
 }
 
 impl Parse for AdditiveExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = MultiplicativeExpression::parse(l)? {
             let next = AdditiveExpressionEnd::parse(l)?;
@@ -1019,7 +1048,7 @@ impl Parse for AdditiveExpression {
 }
 
 impl Parse for AdditiveExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::Add) {
             let expr = MultiplicativeExpression::parse(l)?.unwrap();
@@ -1036,7 +1065,7 @@ impl Parse for AdditiveExpressionEnd {
 }
 
 impl Parse for MultiplicativeExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(expr) = CastExpression::parse(l)? {
             let next = MultiplicativeExpressionEnd::parse(l)?;
@@ -1048,7 +1077,7 @@ impl Parse for MultiplicativeExpression {
 }
 
 impl Parse for MultiplicativeExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::MulOrPointer) {
             let expr = CastExpression::parse(l)?.unwrap();
@@ -1069,7 +1098,7 @@ impl Parse for MultiplicativeExpressionEnd {
 }
 
 impl Parse for CastExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if l.test(Lexeme::LeftParen) {
 
@@ -1101,7 +1130,7 @@ impl Parse for CastExpression {
 }
 
 impl Parse for UnaryExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(postfix) = PostfixExpression::parse(l)? {
             Ok(Some(Box::new(Self::Postfix(postfix))))
@@ -1115,13 +1144,13 @@ impl Parse for UnaryExpression {
             let cast_expr = CastExpression::parse(l)?.unwrap();
             Ok(Some(Box::new(Self::Cast(unary_op, cast_expr))))
         } else if l.test(Lexeme::Sizeof) {
-            if let Some(unary_expr) = UnaryExpression::parse(l)? {
-                Ok(Some(Box::new(Self::Sizeof(unary_expr))))
-            } else if l.test(Lexeme::LeftParen) {
+            if l.test(Lexeme::LeftParen) {
                 let type_name = TypeName::parse(l)?.unwrap();
                 l.consume(Lexeme::RightParen)?;
 
                 Ok(Some(Box::new(Self::SizeofType(type_name))))
+            }else if let Some(unary_expr) = UnaryExpression::parse(l)? {
+                Ok(Some(Box::new(Self::Sizeof(unary_expr))))
             } else {
                 Err("Expected Left Paren".into())
             }
@@ -1132,7 +1161,7 @@ impl Parse for UnaryExpression {
 }
 
 impl Parse for UnaryOperator {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::BitwiseAndReference) => Ok(Some(Self::Ref)),
@@ -1150,7 +1179,7 @@ impl Parse for UnaryOperator {
 }
 
 impl Parse for PostfixExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
 
         if let Some(prim_expr) = PrimaryExpression::parse(l)? {
@@ -1163,7 +1192,7 @@ impl Parse for PostfixExpression {
 }
 
 impl Parse for PostfixExpressionEnd {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
 
         let res = if l.test(Lexeme::LeftBracket) {
@@ -1193,7 +1222,7 @@ impl Parse for PostfixExpressionEnd {
 }
 
 impl Parse for PrimaryExpression {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         if let Some(ident) = Identifier::parse(l)? {
             Ok(Some(Box::new(Self::Identifier(ident))))
@@ -1214,7 +1243,7 @@ impl Parse for PrimaryExpression {
 }
 
 impl Parse for Constant {
-    fn parse(l: &mut LexemeFeed) -> Result<Option<Box<Self>>, Box<dyn Error>> {
+    fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)> {
 		Self::log(l);
         let res = match l.peek() {
             Some(Lexeme::IntLiteral(a)) => Ok(Some(Self::Int(*a))),

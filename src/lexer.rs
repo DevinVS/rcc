@@ -14,7 +14,8 @@ pub struct Lexer {
     multi_line_comment: bool,
     in_string: bool,
     in_type_def: bool,
-    type_names: HashSet<String>
+    type_names: HashSet<String>,
+    brace_level: usize
 }
 
 impl Lexer {
@@ -24,7 +25,8 @@ impl Lexer {
             multi_line_comment: false,
             in_string: false,
             in_type_def: false,
-            type_names: HashSet::new()
+            type_names: HashSet::new(),
+            brace_level: 0
         }
     }
 
@@ -129,13 +131,20 @@ impl Lexer {
                 // Separators
                 ',' | ';' | '(' | ')' | '[' | ']' | '{' | '}' => {
                     self.push_lexeme(&mut lexemes, &mut stack);
-                    if self.in_type_def && c ==';' {
+                    if self.in_type_def && self.brace_level==0 && c ==';' {
                         if let Some(Lexeme::Identifier(n)) = lexemes.pop() {
                             lexemes.push(Lexeme::TypeName(n.clone()));
                             self.type_names.insert(n);
                             self.in_type_def = false;
                         }
                     }
+
+                    if c=='{' {
+                        self.brace_level += 1;
+                    } else if c=='}' {
+                        self.brace_level -= 1;
+                    }
+
                     lexemes.push(SEPARATORS.get(&c).unwrap().clone());
                 }
 
