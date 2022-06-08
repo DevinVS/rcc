@@ -1,11 +1,33 @@
+use crate::lexeme::Lexeme;
+
 pub type CProgram = Vec<Box<ExternalDeclaration>>;
 
 #[derive(Debug)]
 pub struct Identifier(pub String);
 
 #[derive(Debug)]
-pub struct CSVec<T> {
+pub struct SVec<T, const SEP: usize> {
     pub items: Vec<T>
+}
+
+#[derive(Debug)]
+pub struct StartExpression<S, T> {
+    pub expr: Box<S>,
+    pub next: Option<Box<T>>,
+}
+
+impl<T, const SEP: usize> SVec<T, SEP> {
+    pub fn lexeme() -> Lexeme {
+        match SEP {
+            0 => Lexeme::Comma,
+            1 => Lexeme::Or,
+            2 => Lexeme::And,
+            3 => Lexeme::BitwiseOr,
+            4 => Lexeme::BitwiseXor,
+            5 => Lexeme::BitwiseAndReference,
+            _ => panic!("Invalid Separator")
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -83,7 +105,7 @@ pub enum StructOrUnion {
 
 pub type StructDeclarationList = Vec<Box<StructDeclaration>>;
 
-pub type InitDeclaratorList = CSVec<Box<InitDeclarator>>;
+pub type InitDeclaratorList = SVec<Box<InitDeclarator>, 0>;
 
 #[derive(Debug)]
 pub enum InitDeclarator {
@@ -105,7 +127,7 @@ pub enum SpecifierOrQualifier {
     Qualifier(Box<TypeQualifier>)
 }
 
-pub type StructDeclaratorList = CSVec<Box<StructDeclarator>>;
+pub type StructDeclaratorList = SVec<Box<StructDeclarator>, 0>;
 
 #[derive(Debug)]
 pub enum StructDeclarator {
@@ -119,7 +141,7 @@ pub enum EnumSpecifier {
     Identifier(Box<Identifier>)
 }
 
-pub type EnumeratorList = CSVec<Box<Enumerator>>;
+pub type EnumeratorList = SVec<Box<Enumerator>, 0>;
 
 #[derive(Debug)]
 pub enum Enumerator {
@@ -162,7 +184,7 @@ pub enum ParameterTypeList {
     VarArgs(Box<ParameterList>)
 }
 
-pub type ParameterList = CSVec<Box<ParameterDeclaration>>;
+pub type ParameterList = SVec<Box<ParameterDeclaration>, 0>;
 
 #[derive(Debug)]
 pub enum ParameterDeclaration {
@@ -170,7 +192,7 @@ pub enum ParameterDeclaration {
     AbstractDeclarator(Box<DeclarationSpecifiers>, Option<Box<AbstractDeclarator>>)
 }
 
-pub type IdentifierList = CSVec<Box<Identifier>>;
+pub type IdentifierList = SVec<Box<Identifier>, 0>;
 
 #[derive(Debug)]
 pub enum Initializer {
@@ -178,7 +200,7 @@ pub enum Initializer {
     List(Box<InitializerList>)
 }
 
-pub type InitializerList = CSVec<Box<Initializer>>;
+pub type InitializerList = SVec<Box<Initializer>, 0>;
 
 #[derive(Debug)]
 pub struct TypeName {
@@ -263,7 +285,7 @@ pub enum JumpStatement {
     Return(Option<Box<Expression>>)
 }
 
-pub type Expression = CSVec<Box<AssignmentExpression>>;
+pub type Expression = SVec<Box<AssignmentExpression>, 0>;
 
 #[derive(Debug)]
 pub enum AssignmentExpression {
@@ -296,71 +318,13 @@ pub enum ConditionalExpression {
 #[derive(Debug)]
 pub struct ConstantExpression(pub Box<ConditionalExpression>);
 
-#[derive(Debug)]
-pub struct LogicalOrExpression {
-    pub expr: Box<LogicalAndExpression>,
-    pub next: Option<Box<LogicalOrExpressionEnd>>
-}
+pub type LogicalOrExpression = SVec<Box<LogicalAndExpression>, 1>;
+pub type LogicalAndExpression = SVec<Box<InclusiveOrExpression>, 2>;
+pub type InclusiveOrExpression = SVec<Box<ExclusiveOrExpression>, 3>;
+pub type ExclusiveOrExpression = SVec<Box<AndExpression>, 4>;
+pub type AndExpression = SVec<Box<EqualityExpression>, 5>;
 
-#[derive(Debug)]
-pub struct LogicalOrExpressionEnd {
-    pub expr: Box<LogicalAndExpression>,
-    pub next: Option<Box<LogicalOrExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct LogicalAndExpression {
-    pub expr: Box<InclusiveOrExpression>,
-    pub next: Option<Box<LogicalAndExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct LogicalAndExpressionEnd {
-    pub expr: Box<InclusiveOrExpression>,
-    pub next: Option<Box<LogicalAndExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct InclusiveOrExpression {
-    pub expr: Box<ExclusiveOrExpression>,
-    pub next: Option<Box<InclusiveOrExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct InclusiveOrExpressionEnd {
-    pub expr: Box<ExclusiveOrExpression>,
-    pub next: Option<Box<InclusiveOrExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct ExclusiveOrExpression {
-    pub expr: Box<AndExpression>,
-    pub next: Option<Box<ExclusiveOrExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct ExclusiveOrExpressionEnd {
-    pub expr: Box<AndExpression>,
-    pub next: Option<Box<ExclusiveOrExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct AndExpression {
-    pub expr: Box<EqualityExpression>,
-    pub next: Option<Box<AndExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct AndExpressionEnd {
-    pub expr: Box<EqualityExpression>,
-    pub next: Option<Box<AndExpressionEnd>>
-}
-
-#[derive(Debug)]
-pub struct EqualityExpression {
-    pub expr: Box<RelationalExpression>,
-    pub next: Option<Box<EqualityExpressionEnd>>
-}
+pub type EqualityExpression = StartExpression<RelationalExpression, EqualityExpressionEnd>;
 
 #[derive(Debug)]
 pub enum EqualityExpressionEnd {
@@ -368,11 +332,7 @@ pub enum EqualityExpressionEnd {
     NotEqual(Box<RelationalExpression>, Option<Box<EqualityExpressionEnd>>)
 }
 
-#[derive(Debug)]
-pub struct RelationalExpression {
-    pub expr: Box<ShiftExpression>,
-    pub next: Option<Box<RelationalExpressionEnd>>
-}
+pub type RelationalExpression = StartExpression<ShiftExpression, RelationalExpressionEnd>;
 
 #[derive(Debug)]
 pub enum RelationalExpressionEnd {
@@ -382,11 +342,7 @@ pub enum RelationalExpressionEnd {
     GTE(Box<ShiftExpression>, Option<Box<RelationalExpressionEnd>>)
 }
 
-#[derive(Debug)]
-pub struct ShiftExpression {
-    pub expr: Box<AdditiveExpression>,
-    pub next: Option<Box<ShiftExpressionEnd>>
-}
+pub type ShiftExpression = StartExpression<AdditiveExpression, ShiftExpressionEnd>;
 
 #[derive(Debug)]
 pub enum ShiftExpressionEnd {
@@ -394,11 +350,7 @@ pub enum ShiftExpressionEnd {
     RS(Box<AdditiveExpression>, Option<Box<ShiftExpressionEnd>>)
 }
 
-#[derive(Debug)]
-pub struct AdditiveExpression {
-    pub expr: Box<MultiplicativeExpression>,
-    pub next: Option<Box<AdditiveExpressionEnd>>
-}
+pub type AdditiveExpression = StartExpression<MultiplicativeExpression, AdditiveExpressionEnd>;
 
 #[derive(Debug)]
 pub enum AdditiveExpressionEnd {
@@ -406,11 +358,7 @@ pub enum AdditiveExpressionEnd {
     Sub(Box<MultiplicativeExpression>, Option<Box<AdditiveExpressionEnd>>)
 }
 
-#[derive(Debug)]
-pub struct MultiplicativeExpression {
-    pub expr: Box<CastExpression>,
-    pub next: Option<Box<MultiplicativeExpressionEnd>>
-}
+pub type MultiplicativeExpression = StartExpression<CastExpression, MultiplicativeExpressionEnd>;
 
 #[derive(Debug)]
 pub enum MultiplicativeExpressionEnd {
@@ -469,7 +417,7 @@ pub enum PrimaryExpression {
     Expression(Box<Expression>)
 }
 
-pub type ArgumentExpressionList = CSVec<Box<AssignmentExpression>>;
+pub type ArgumentExpressionList = SVec<Box<AssignmentExpression>, 0>;
 
 #[derive(Debug)]
 pub enum Constant {
