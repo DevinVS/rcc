@@ -9,7 +9,7 @@ pub trait Parse {
     /// matched its pattern
     fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>where Self: Sized;
     fn log(l: &[Lexeme]) {
-        println!("{}: {:?}", type_name::<Self>(), &l.get(0));
+        //println!("{}: {:?}", type_name::<Self>(), &l.get(0));
     }
 }
 
@@ -45,7 +45,7 @@ impl<T: Debug + Parse, const SEP: usize> Parse for SVec<Box<T>, SEP> {
         tokens += t;
         items.push(first);
 
-        while l.get(0)? == &(SVec::<Box<T>, SEP>::lexeme()) {
+        while l.get(tokens)? == &(SVec::<Box<T>, SEP>::lexeme()) {
             let (i, t) = T::parse(&l[tokens..]).unwrap();
             tokens += t;
             items.push(i);
@@ -152,7 +152,7 @@ impl Parse for Declaration {
                 a
             });
 
-        if l.get(0)? != &Lexeme::Semicolon {
+        if l.get(tokens)? != &Lexeme::Semicolon {
             None
         } else {
             tokens += 1;
@@ -256,13 +256,13 @@ impl Parse for StructOrUnionSpecifier {
                 a
             });
 
-        if l.get(0)? == &Lexeme::LeftBrace {
+        if l.get(tokens)? == &Lexeme::LeftBrace {
             tokens += 1;
 
             if let Some((list, t)) = StructDeclarationList::parse(&l[tokens..]) {
                 tokens += t;
 
-                if l.get(0)? == &Lexeme::RightBrace {
+                if l.get(tokens)? == &Lexeme::RightBrace {
                     tokens += 1;
                     return Some((Box::new(Self::List(sou, identifier, list)), tokens));
                 }
@@ -300,7 +300,7 @@ impl Parse for InitDeclarator {
         let (declarator, t) = Declarator::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? == &Lexeme::Equal {
+        if l.get(tokens)? == &Lexeme::Equal {
             tokens += 1;
 
             if let Some((initializer, t)) = Initializer::parse(&l[tokens..]) {
@@ -327,7 +327,7 @@ impl Parse for StructDeclaration {
         let (decl_list, t) = StructDeclaratorList::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? == &Lexeme::Semicolon {
+        if l.get(tokens)? == &Lexeme::Semicolon {
             tokens += 1;
 
             Some((Box::new(Self {
@@ -369,7 +369,7 @@ impl Parse for StructDeclarator {
                 a
             });
 
-        if l.get(0)? == &Lexeme::Colon {
+        if l.get(tokens)? == &Lexeme::Colon {
             tokens += 1;
 
             if let Some((const_expr, t)) = ConstantExpression::parse(&l[tokens..]) {
@@ -394,7 +394,7 @@ impl Parse for EnumSpecifier {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? != &Lexeme::Enum {
+        if l.get(tokens)? != &Lexeme::Enum {
             return None;
         }
         tokens += 1;
@@ -405,13 +405,13 @@ impl Parse for EnumSpecifier {
                 a
             });
 
-        if l.get(0)? == &Lexeme::LeftBrace {
+        if l.get(tokens)? == &Lexeme::LeftBrace {
             tokens += 1;
 
             if let Some((enum_list, t)) = EnumeratorList::parse(&l[tokens..]) {
                 tokens += t;
 
-                if l.get(0)? == &Lexeme::RightBrace {
+                if l.get(tokens)? == &Lexeme::RightBrace {
                     tokens += 1;
                     return Some((Box::new(Self::List(ident, enum_list)), tokens));
                 }
@@ -438,7 +438,7 @@ impl Parse for Enumerator {
         let (ident, t) = Identifier::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? == &Lexeme::Equal {
+        if l.get(tokens)? == &Lexeme::Equal {
             tokens += 1;
 
             if let Some((const_expr, t)) = ConstantExpression::parse(&l[tokens..]) {
@@ -503,13 +503,13 @@ impl Parse for DirectDeclarator {
             return Some((Box::new(DirectDeclarator::TypedefName(typedef_name, end)), tokens));
         }
 
-        if l.get(0)? == &Lexeme::LeftParen {
+        if l.get(tokens)? == &Lexeme::LeftParen {
             tokens += 1;
 
             if let Some((decl, t)) = Declarator::parse(&l[tokens..]) {
                 tokens += t;
 
-                if l.get(0)? == &Lexeme::RightParen {
+                if l.get(tokens)? == &Lexeme::RightParen {
                     tokens += 1;
 
                     let end = DirectDeclaratorEnd::parse(&l[tokens..])
@@ -532,7 +532,7 @@ impl Parse for DirectDeclaratorEnd {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? == &Lexeme::LeftBracket {
+        if l.get(tokens)? == &Lexeme::LeftBracket {
             tokens += 1;
 
             let const_expr = ConstantExpression::parse(&l[tokens..])
@@ -550,13 +550,13 @@ impl Parse for DirectDeclaratorEnd {
             return Some((Box::new(Self::ConstantExpression(const_expr, end)), tokens));
         }
 
-        if l.get(0)? == &Lexeme::LeftParen {
+        if l.get(tokens)? == &Lexeme::LeftParen {
             tokens += 1;
 
             if let Some((param_list, t)) = ParameterTypeList::parse(&l[tokens..]) {
                 tokens += t;
 
-                if l.get(0)? == &Lexeme::RightParen {
+                if l.get(tokens)? == &Lexeme::RightParen {
                     tokens += 1;
 
                     let end = DirectDeclaratorEnd::parse(&l[tokens..])
@@ -577,7 +577,7 @@ impl Parse for DirectDeclaratorEnd {
                     a
                 });
 
-            if l.get(0)? == &Lexeme::RightParen {
+            if l.get(tokens)? == &Lexeme::RightParen {
                 tokens += 1;
 
                 let end = DirectDeclaratorEnd::parse(&l[tokens..])
@@ -599,7 +599,7 @@ impl Parse for Pointer {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? == &Lexeme::MulOrPointer {
+        if l.get(tokens)? == &Lexeme::MulOrPointer {
             tokens += 1;
             let list = TypeQualifierList::parse(&l[tokens..])
                 .map(|(a, t)| {
@@ -626,16 +626,16 @@ impl Parse for ParameterTypeList {
         let (qual, t) = ParameterList::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? == &Lexeme::Comma {
+        if l.get(tokens)? == &Lexeme::Comma {
             tokens += 1;
 
-            if l.get(0)? == &Lexeme::Dot {
+            if l.get(tokens)? == &Lexeme::Dot {
                 tokens += 1;
 
-                if l.get(0)? == &Lexeme::Dot {
+                if l.get(tokens)? == &Lexeme::Dot {
                     tokens += 1;
 
-                    if l.get(0)? == &Lexeme::Dot {
+                    if l.get(tokens)? == &Lexeme::Dot {
                         tokens += 1;
 
                         return Some((Box::new(Self::VarArgs(qual)), tokens));
@@ -686,15 +686,15 @@ impl Parse for Initializer {
             return Some((Box::new(Self::Assign(assn_expr)), tokens));
         }
 
-        if l.get(0)? == &Lexeme::LeftBrace {
+        if l.get(tokens)? == &Lexeme::LeftBrace {
             tokens += 1;
 
             let (init_list, t) = InitializerList::parse(&l[tokens..])?;
             tokens += t;
 
-            if l.get(0)? == &Lexeme::Comma { tokens += 1; }
+            if l.get(tokens)? == &Lexeme::Comma { tokens += 1; }
 
-            if l.get(0)? == &Lexeme::RightBrace {
+            if l.get(tokens)? == &Lexeme::RightBrace {
                 tokens += 1;
                 return Some((Box::new(Self::List(init_list)), tokens));
             }
@@ -753,7 +753,7 @@ impl Parse for DirectAbstractDeclarator {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? == &Lexeme::LeftBracket {
+        if l.get(tokens)? == &Lexeme::LeftBracket {
             tokens += 1;
             let const_expr = ConstantExpression::parse(&l[tokens..])
                 .map(|(a, t)| {
@@ -761,7 +761,7 @@ impl Parse for DirectAbstractDeclarator {
                     a
                 });
 
-            if l.get(0)? == &Lexeme::RightBracket {
+            if l.get(tokens)? == &Lexeme::RightBracket {
                 tokens += 1;
 
                 let end = DirectAbstractDeclaratorEnd::parse(&l[tokens..])
@@ -772,13 +772,13 @@ impl Parse for DirectAbstractDeclarator {
 
                 return Some((Box::new(Self::Const(const_expr, end)), tokens));
             }
-        } else if l.get(0)? == &Lexeme::LeftParen {
+        } else if l.get(tokens)? == &Lexeme::LeftParen {
             tokens += 1;
 
             if let Some((decl, t)) = AbstractDeclarator::parse(&l[tokens..]) {
                 tokens += t;
 
-                if l.get(0)? == &Lexeme::RightParen {
+                if l.get(tokens)? == &Lexeme::RightParen {
                     tokens += 1;
                     let end = DirectAbstractDeclaratorEnd::parse(&l[tokens..])
                         .map(|(a,t)| {
@@ -798,7 +798,7 @@ impl Parse for DirectAbstractDeclarator {
                     a
                 });
 
-            if l.get(0)? == &Lexeme::RightParen {
+            if l.get(tokens)? == &Lexeme::RightParen {
                 tokens += 1;
 
                 let end = DirectAbstractDeclaratorEnd::parse(&l[tokens..])
@@ -820,7 +820,7 @@ impl Parse for DirectAbstractDeclaratorEnd {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? == &Lexeme::LeftBracket {
+        if l.get(tokens)? == &Lexeme::LeftBracket {
             tokens += 1;
             let const_expr = ConstantExpression::parse(&l[tokens..])
                 .map(|(a, t)| {
@@ -828,7 +828,7 @@ impl Parse for DirectAbstractDeclaratorEnd {
                     a
                 });
 
-            if l.get(0)? == &Lexeme::RightBracket {
+            if l.get(tokens)? == &Lexeme::RightBracket {
                 tokens += 1;
 
                 let end = DirectAbstractDeclaratorEnd::parse(&l[tokens..])
@@ -839,7 +839,7 @@ impl Parse for DirectAbstractDeclaratorEnd {
 
                 return Some((Box::new(Self::Const(const_expr, end)), tokens));
             }
-        } else if l.get(0)? == &Lexeme::LeftParen {
+        } else if l.get(tokens)? == &Lexeme::LeftParen {
             tokens += 1;
             let list = ParameterTypeList::parse(&l[tokens..])
                 .map(|(a,t)| {
@@ -847,7 +847,7 @@ impl Parse for DirectAbstractDeclaratorEnd {
                     a
                 });
 
-            if l.get(0)? == &Lexeme::RightParen {
+            if l.get(tokens)? == &Lexeme::RightParen {
                 tokens += 1;
 
                 let end = DirectAbstractDeclaratorEnd::parse(&l[tokens..])
@@ -911,13 +911,13 @@ impl Parse for LabeledStatement {
     fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>where Self: Sized {
 		Self::log(l);
         let mut tokens = 0;
-        if l.get(0)? == &Lexeme::Case {
+        if l.get(tokens)? == &Lexeme::Case {
             tokens += 1;
 
             let (expr, t) = ConstantExpression::parse(&l[tokens..])?;
             tokens += t;
 
-            if l.get(0)? != &Lexeme::Colon {
+            if l.get(tokens)? != &Lexeme::Colon {
                 return None;
             }
             tokens += 1;
@@ -926,10 +926,10 @@ impl Parse for LabeledStatement {
             tokens += t;
 
             Some((Box::new(Self::Case(expr, stmt)), tokens))
-        } else if l.get(0)? == &Lexeme::Default {
+        } else if l.get(tokens)? == &Lexeme::Default {
             tokens += 1;
 
-            if l.get(0)? == &Lexeme::Colon {
+            if l.get(tokens)? == &Lexeme::Colon {
                 return None;
             }
             tokens += 1;
@@ -942,7 +942,7 @@ impl Parse for LabeledStatement {
             let (identifier, t) = Identifier::parse(&l[tokens..])?;
             tokens += t;
 
-            if l.get(0)? == &Lexeme::Colon {
+            if l.get(tokens)? == &Lexeme::Colon {
                 return None;
             }
             tokens += 1;
@@ -965,7 +965,7 @@ impl Parse for ExpressionStatement {
                 a
             });
 
-        if l.get(0)? == &Lexeme::Semicolon {
+        if l.get(tokens)? == &Lexeme::Semicolon {
             Some((Box::new(Self {
                 expression
             }), tokens))
@@ -980,7 +980,7 @@ impl Parse for CompoundStatement {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? == &Lexeme::LeftBrace {
+        if l.get(tokens)? == &Lexeme::LeftBrace {
             tokens += 1;
 
             let declarations = DeclarationList::parse(&l[tokens..])
@@ -995,7 +995,7 @@ impl Parse for CompoundStatement {
                     a
                 });
 
-            if l.get(0)? == &Lexeme::RightBrace {
+            if l.get(tokens)? == &Lexeme::RightBrace {
                 tokens += 1;
                 return Some((Box::new(Self {
                     declarations,
@@ -1013,22 +1013,22 @@ impl Parse for SelectionStatement {
 		Self::log(l);
         let mut tokens = 0;
 
-        if l.get(0)? == &Lexeme::If {
+        if l.get(tokens)? == &Lexeme::If {
             tokens += 1;
 
-            if l.get(0)? == &Lexeme::LeftParen {
+            if l.get(tokens)? == &Lexeme::LeftParen {
                 tokens += 1;
 
                 if let Some((expr, t)) = Expression::parse(&l[tokens..]) {
                     tokens += t;
 
-                    if l.get(0)? == &Lexeme::RightParen {
+                    if l.get(tokens)? == &Lexeme::RightParen {
                         tokens += 1;
 
                         if let Some((stmt, t)) = Statement::parse(&l[tokens..]) {
                             tokens += t;
 
-                            if l.get(0)? == &Lexeme::Else {
+                            if l.get(tokens)? == &Lexeme::Else {
                                 tokens += 1;
 
                                 if let Some((else_stmt, t)) = Statement::parse(&l[tokens..]) {
@@ -1048,14 +1048,14 @@ impl Parse for SelectionStatement {
             return None;
         }
 
-        if l.get(0)? == &Lexeme::Switch {
-            if l.get(0)? == &Lexeme::LeftParen {
+        if l.get(tokens)? == &Lexeme::Switch {
+            if l.get(tokens)? == &Lexeme::LeftParen {
                 tokens += 1;
 
                 if let Some((expr, t)) = Expression::parse(&l[tokens..]) {
                     tokens += t;
 
-                    if l.get(0)? == &Lexeme::RightParen {
+                    if l.get(tokens)? == &Lexeme::RightParen {
                         tokens += 1;
 
                         if let Some((stmt, t)) = Statement::parse(&l[tokens..]) {
@@ -1075,16 +1075,16 @@ impl Parse for IterationStatement {
     fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>where Self: Sized {
 		Self::log(l);
         let mut tokens = 0;
-        if l.get(0)? == &Lexeme::While {
+        if l.get(tokens)? == &Lexeme::While {
             tokens += 1;
 
-            if l.get(0)? == &Lexeme::LeftParen {
+            if l.get(tokens)? == &Lexeme::LeftParen {
                 tokens += 1;
 
                 if let Some((expr, t)) = Expression::parse(&l[tokens..]) {
                     tokens += t;
 
-                    if l.get(0)? == &Lexeme::RightParen {
+                    if l.get(tokens)? == &Lexeme::RightParen {
                         tokens += 1;
 
                         if let Some((stmt, t)) = Statement::parse(&l[tokens..]) {
@@ -1099,16 +1099,16 @@ impl Parse for IterationStatement {
             return None;
         }
 
-        if l.get(0)? == &Lexeme::Do {
+        if l.get(tokens)? == &Lexeme::Do {
             tokens += 1;
 
             if let Some((stmt, t)) = Statement::parse(&l[tokens..]) {
                 tokens += t;
 
-                if l.get(0)? == &Lexeme::While {
+                if l.get(tokens)? == &Lexeme::While {
                     tokens += 1;
 
-                    if l.get(0)? == &Lexeme::LeftParen {
+                    if l.get(tokens)? == &Lexeme::LeftParen {
                         tokens += 1;
 
                         if let Some((expr, t)) = Expression::parse(&l[tokens..]) {
@@ -1123,10 +1123,10 @@ impl Parse for IterationStatement {
             return None;
         }
 
-        if l.get(0)? == &Lexeme::For {
+        if l.get(tokens)? == &Lexeme::For {
             tokens += 1;
 
-            if l.get(0)? != &Lexeme::LeftParen { return None; }
+            if l.get(tokens)? != &Lexeme::LeftParen { return None; }
             tokens += 1;
 
             let expr1 = Expression::parse(&l[tokens..])
@@ -1135,7 +1135,7 @@ impl Parse for IterationStatement {
                     a
                 });
 
-            if l.get(0)? != &Lexeme::Semicolon { return None; }
+            if l.get(tokens)? != &Lexeme::Semicolon { return None; }
             tokens += 1;
 
             let expr2 = Expression::parse(&l[tokens..])
@@ -1144,7 +1144,7 @@ impl Parse for IterationStatement {
                     a
                 });
 
-            if l.get(0)? != &Lexeme::Semicolon { return None; }
+            if l.get(tokens)? != &Lexeme::Semicolon { return None; }
             tokens += 1;
 
             let expr3 = Expression::parse(&l[tokens..])
@@ -1153,7 +1153,7 @@ impl Parse for IterationStatement {
                     a
                 });
 
-            if l.get(0)? != &Lexeme::LeftParen { return None; }
+            if l.get(tokens)? != &Lexeme::LeftParen { return None; }
             tokens += 1;
 
             let (stmt, t) = Statement::parse(&l[tokens..])?;
@@ -1170,12 +1170,12 @@ impl Parse for JumpStatement {
     fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>where Self: Sized {
 		Self::log(l);
         let mut tokens = 1;
-        match l.get(0)? {
+        match l.get(tokens)? {
             Lexeme::Goto => {
                 if let Some((identifier, t)) = Identifier::parse(&l[tokens..]) {
                     tokens += t;
 
-                    if l.get(0)? == &Lexeme::Semicolon {
+                    if l.get(tokens)? == &Lexeme::Semicolon {
                         tokens += 1;
 
                         return Some((Box::new(Self::Goto(identifier)), tokens));
@@ -1184,7 +1184,7 @@ impl Parse for JumpStatement {
                 None
             },
             Lexeme::Continue => {
-                if l.get(0)? == &Lexeme::Semicolon {
+                if l.get(tokens)? == &Lexeme::Semicolon {
                     tokens += 1;
 
                     return Some((Box::new(Self::Continue), tokens));
@@ -1193,7 +1193,7 @@ impl Parse for JumpStatement {
                 None
             },
             Lexeme::Break => {
-                if l.get(0)? == &Lexeme::Semicolon {
+                if l.get(tokens)? == &Lexeme::Semicolon {
                     tokens += 1;
 
                     return Some((Box::new(Self::Break), tokens));
@@ -1208,7 +1208,7 @@ impl Parse for JumpStatement {
                         a
                     });
 
-                if l.get(0)? == &Lexeme::Semicolon {
+                if l.get(tokens)? == &Lexeme::Semicolon {
                     tokens += 1;
                     return Some((Box::new(Self::Return(expr)), tokens));
                 }
@@ -1277,7 +1277,7 @@ impl Parse for ConditionalExpression {
         let (or, t) = LogicalOrExpression::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? == &Lexeme::Question {
+        if l.get(tokens)? == &Lexeme::Question {
             tokens += 1;
 
             if let Some((expr, t)) = Expression::parse(&l[tokens..]) {
@@ -1437,13 +1437,13 @@ impl Parse for CastExpression {
             return Some((Box::new(Self::Unary(expr)), tokens));
         }
 
-        if l.get(0)? != &Lexeme::LeftParen { return None; }
+        if l.get(tokens)? != &Lexeme::LeftParen { return None; }
         tokens += 1;
 
         let (type_name, t) = TypeName::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? != &Lexeme::RightParen { return None; }
+        if l.get(tokens)? != &Lexeme::RightParen { return None; }
         tokens += 1;
 
         let (expr, t) = CastExpression::parse(&l[tokens..])?;
@@ -1474,7 +1474,7 @@ impl Parse for UnaryExpression {
             tokens -= t;
         }
 
-        match l.get(0)? {
+        match l.get(tokens)? {
             Lexeme::Increment => {
                 tokens += 1;
 
@@ -1497,13 +1497,13 @@ impl Parse for UnaryExpression {
                 if let Some((expr, t)) = UnaryExpression::parse(&l[tokens..]) {
                     tokens += t;
                     Some((Box::new(Self::Sizeof(expr)), tokens))
-                } else if l.get(0)? == &Lexeme::LeftParen {
+                } else if l.get(tokens)? == &Lexeme::LeftParen {
                     tokens += 1;
 
                     let (type_name, t) = TypeName::parse(&l[tokens..])?;
                     tokens += t;
 
-                    if l.get(0)? != &Lexeme::RightParen {
+                    if l.get(tokens)? != &Lexeme::RightParen {
                         return None;
                     }
                     tokens += 1;
@@ -1558,7 +1558,7 @@ impl Parse for PostfixExpressionEnd {
     fn parse(l: &[Lexeme]) -> Option<(Box<Self>, usize)>where Self: Sized {
 		Self::log(l);
         let mut tokens = 0;
-        let op = l.get(0)?;
+        let op = l.get(tokens)?;
         tokens += 1;
 
         Some(match op {
@@ -1572,7 +1572,7 @@ impl Parse for PostfixExpressionEnd {
                 let (expr, t) = Expression::parse(&l[tokens..])?;
                 tokens += t;
 
-                if l.get(0)? != &Lexeme::RightBracket { return None; }
+                if l.get(tokens)? != &Lexeme::RightBracket { return None; }
                 tokens += 1;
 
                 (Box::new(Self::Index(expr)), tokens)
@@ -1584,7 +1584,7 @@ impl Parse for PostfixExpressionEnd {
                         a
                     });
 
-                if l.get(0)? != &Lexeme::RightParen { return None; }
+                if l.get(tokens)? != &Lexeme::RightParen { return None; }
 
                 (Box::new(Self::Call(list)), tokens)
             }
@@ -1618,18 +1618,18 @@ impl Parse for PrimaryExpression {
             return Some((Box::new(Self::Constant(c)), tokens));
         }
 
-        if let Lexeme::StringLiteral(s) = &l.get(0)? {
+        if let Lexeme::StringLiteral(s) = &l.get(tokens)? {
             tokens += 1;
             return Some((Box::new(Self::String(s.clone())), tokens));
         }
 
-        if l.get(0)? != &Lexeme::LeftParen { return None; }
+        if l.get(tokens)? != &Lexeme::LeftParen { return None; }
         tokens += 1;
 
         let (expr, t) = Expression::parse(&l[tokens..])?;
         tokens += t;
 
-        if l.get(0)? != &Lexeme::RightParen { return None; }
+        if l.get(tokens)? != &Lexeme::RightParen { return None; }
         tokens += 1;
 
         Some((Box::new(Self::Expression(expr)), tokens))
